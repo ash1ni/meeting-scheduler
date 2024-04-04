@@ -134,11 +134,12 @@ const summarizeUserMessage = async (req, res) => {
     const parsedContent = JSON.parse(response.choices[0].message.content);
 
     res.json({ summary: response.choices[0].message, parsedContent });
+    const bearerToken = process.env.BEARER_TOKEN
     const apiResponse = await fetch("https://govintranetnew.nic.in/meityapissecurity/calendar/ai_get_meeting_details", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc19zdXBlcl9hZG1pbiI6ZmFsc2UsImlzX21pbmlzdGVyIjpmYWxzZSwiaWQiOjk5MjIsInJvbGVfaWQiOjQsIm1pbmlzdHJ5X2lkIjo1LCJkZXBhcnRtZW50X2lkIjo5OSwibGV2ZWwiOjQsImlzX3RhZ2dlZF9yb2xlIjpmYWxzZSwidGFnZ2VkX2Zvcl9pZCI6bnVsbCwiaXNBcHBsaWNhdGlvbiI6dHJ1ZSwiaWF0IjoxNzEyMjI1MDgzLCJleHAiOjE3MTIyNjgyODN9.VGy_lgvm8UyhLUEwUw3eWeAgh2syZifyu14N0XtHKXE`,
+        Authorization: `Bearer ${bearerToken}`,
       },
       body: JSON.stringify(parsedContent),
     });
