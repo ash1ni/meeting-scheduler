@@ -97,6 +97,7 @@ const saveConversation = async (req, res) => {
       message: "Conversation saved successfully",
       conversation: conversation.toJSON(), // Ensure the response includes the saved data
     });
+    
   } catch (error) {
     console.error("Error saving messages:", error);
     res.status(500).json({ message: "Internal Server Error" });
@@ -133,6 +134,26 @@ const summarizeUserMessage = async (req, res) => {
     const parsedContent = JSON.parse(response.choices[0].message.content);
 
     res.json({ summary: response.choices[0].message, parsedContent });
+    const apiResponse = await fetch("https://govintranetnew.nic.in/meityapissecurity/calendar/ai_get_meeting_details", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc19zdXBlcl9hZG1pbiI6ZmFsc2UsImlzX21pbmlzdGVyIjpmYWxzZSwiaWQiOjk5MjIsInJvbGVfaWQiOjQsIm1pbmlzdHJ5X2lkIjo1LCJkZXBhcnRtZW50X2lkIjo5OSwibGV2ZWwiOjQsImlzX3RhZ2dlZF9yb2xlIjpmYWxzZSwidGFnZ2VkX2Zvcl9pZCI6bnVsbCwiaXNBcHBsaWNhdGlvbiI6dHJ1ZSwiaWF0IjoxNzEyMjI1MDgzLCJleHAiOjE3MTIyNjgyODN9.VGy_lgvm8UyhLUEwUw3eWeAgh2syZifyu14N0XtHKXE`,
+      },
+      body: JSON.stringify(parsedContent),
+    });
+
+    // Ensure response is ok
+    if (!apiResponse.ok) {
+      throw new Error(`HTTP error! Status: ${apiResponse.status}`);
+    }
+
+    // Parse the response JSON
+    const responseData = await apiResponse.json();
+
+    // Handle the response from the API as needed
+    const scheduleData = responseData.data;
+    console.log(scheduleData);
   } catch (error) {
     console.error("Error summarizing user messages:", error);
     res.status(500).json({ message: "Internal Server Error" });
