@@ -1,26 +1,23 @@
 {
   "development": {
     "username": "postgres",
-    "password": "postgres",
+    "password": "root123",
     "database": "meetingDB",
-    "host": "localhost",
-    "port": 5432,
+    "host": "3.109.59.175",
     "dialect": "postgres"
   },
   "test": {
-    "username": "test",
-    "password": "test",
-    "database": "test_db",
-    "host": "localhost",
-    "port": 5432,
+    "username": "postgres",
+    "password": "root123",
+    "database": "meetingDB",
+    "host": "3.109.59.175",
     "dialect": "postgres"
   },
   "production": {
-    "username": "prod",
-    "password": "prod",
-    "database": "prod_db",
-    "host": "localhost",
-    "port": 5432,
+    "username": "postgres",
+    "password": "root123",
+    "database": "meetingDB",
+    "host": "3.109.59.175",
     "dialect": "postgres"
   }
 }

@@ -1,8 +1,9 @@
 const express = require('express');
 const bodyParser = require('body-parser');
-// const { sequelize, Sequelize } = require('./models');
+const sequelize = require('./config/database'); // Adjust the path as necessary
+const { Conversation } = require('./models/Conversation'); // Adjust the path as necessary
 const app = express();
-const port = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5000;
 require('dotenv').config();
 const morgan = require('morgan');
 
@@ -20,6 +21,13 @@ const chatRoutes = require('./routes/chatRoutes');
 // User routes
 app.use('/api', chatRoutes);
 
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+sequelize.sync().then(() => {
+  console.log('Database synced');
+
+  // Start the server inside the .then() to ensure it starts after the database is ready
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
+}).catch((error) => {
+  console.error('Unable to sync database:', error);
 });
