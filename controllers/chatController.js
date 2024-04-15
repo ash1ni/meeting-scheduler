@@ -6,6 +6,7 @@ require("dotenv").config();
 const Conversation = require("../models/Conversation");
 const MeetingDetail = require("../models/MeetingDetail");
 const { Sequelize } = require("sequelize");
+const { log } = require("util");
 const sequelize = new Sequelize(
   "postgresql://postgres:root123@3.109.59.175:5432/meetingDB"
 );
@@ -77,11 +78,9 @@ const saveConversation = async (req, res) => {
 
     // Ensure messages is not null or undefined and is an array
     if (!Array.isArray(messages) || messages.length === 0) {
-      return res
-        .status(400)
-        .json({
-          message: "Messages data is missing or not in expected format",
-        });
+      return res.status(400).json({
+        message: "Messages data is missing or not in expected format",
+      });
     }
 
     // Since your data structure is already in the desired format, you can directly serialize the entire array
@@ -97,7 +96,6 @@ const saveConversation = async (req, res) => {
       message: "Conversation saved successfully",
       conversation: conversation.toJSON(), // Ensure the response includes the saved data
     });
-    
   } catch (error) {
     console.error("Error saving messages:", error);
     res.status(500).json({ message: "Internal Server Error" });
@@ -130,19 +128,34 @@ const summarizeUserMessage = async (req, res) => {
       frequency_penalty: 0.0,
       presence_penalty: 0.0,
     });
-
+    console.log(response.choices[0].message);
     const parsedContent = JSON.parse(response.choices[0].message.content);
+    console.log(parsedContent);
 
-    res.json({ summary: response.choices[0].message, parsedContent });
-    const bearerToken = process.env.BEARER_TOKEN
-    const apiResponse = await fetch("https://govintranetnew.nic.in/meityapissecurity/calendar/ai_get_meeting_details", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${bearerToken}`,
-      },
-      body: JSON.stringify(parsedContent),
-    });
+    
+
+    // Getting details for meeting from remote API
+    const bearerToken = process.env.BEARER_TOKEN;
+    const apiPayload = {
+      email: parsedContent.Internal_participant,
+      venue: parsedContent.venue,
+      mode: parsedContent.mode,
+      baRule: parsedContent.baRule,
+      category: parsedContent.category,
+      chairperson: parsedContent.chairperson,
+    };
+    console.log("API payload: ",apiPayload);
+    const apiResponse = await fetch(
+      "https://govintranetnew.nic.in/meityapissecurity/calendar/ai_get_meeting_details",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${bearerToken}`,
+        },
+        body: JSON.stringify(apiPayload),
+      }
+    );
 
     // Ensure response is ok
     if (!apiResponse.ok) {
@@ -155,6 +168,123 @@ const summarizeUserMessage = async (req, res) => {
     // Handle the response from the API as needed
     const scheduleData = responseData.data;
     console.log(scheduleData);
+    // console.log(scheduleData.chairperson[0].id);
+    const emails = scheduleData.email;
+    let emailPayload = [];
+    // Loop through each object in the array
+    emails.forEach((email) => {
+      // Construct payload object for each email
+      const payloadObj = {
+        member_id: email.memberid,
+        role_id: email.roleId,
+        ministry_id: email.ministryId,
+        department_id: email.departmentId,
+      };
+
+      // Push payload object to the array
+      emailPayload.push(payloadObj);
+    });
+    console.log("Email Payloads ", emailPayload);
+
+    // ---------------------Scheduling Meeting on BharatVC Logic--------------------------
+    const meetingPayload = {
+      meetingStartDate: parsedContent.start_date,
+      meetingEndDate: parsedContent.end_date,
+      startTime: parsedContent.start_time,
+      endTime: parsedContent.end_time,
+      subject: parsedContent.baRule,
+      guest: null,
+      record:false
+    };
+    console.log(meetingPayload);
+    const meetingResponse = await fetch(
+      "https://govintranetnew.nic.in/meityapissecurity/calendar/BharatVC_auto_link_generate",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${bearerToken}`,
+        },
+        body: JSON.stringify(meetingPayload),
+      }
+    );
+
+    // Ensure response is ok
+    if (!meetingResponse.ok) {
+      throw new Error(`HTTP error! Status: ${meetingResponse.status}`);
+    }
+
+    // Parse the response JSON
+    const meetingData = await meetingResponse.json();
+    console.log(meetingData);
+
+    const bharatvcResponse = meetingData.data;
+    console.log(bharatvcResponse);
+
+    // ----Scheduling Meeting API call-----------
+
+const schedulePayload = {
+  natureOfEng:2,
+  frequencyId:1,
+  category_id: scheduleData.category[0].id,
+  baRule: scheduleData.baRule[0].id,
+  subject: parsedContent.baRule,
+  meetingStartDate: parsedContent.start_date,
+  meetingEndDate: parsedContent.end_date,
+  for_parent:false,
+  startTime: parsedContent.start_time,
+  endTime: parsedContent.end_time,
+  venueId: null,
+  modeOfEng: 1,
+  meetingURL: bharatvcResponse.meetingURL,
+  password: '',
+  goalId: null,
+  subGoalId:null,
+  taskId:null,
+  isAllDay:false,
+  venue_text:null,
+  agenda: [],
+  isRecurringMeeting:false,
+  intParticipant: emailPayload,
+  extParticipant:[],
+  bharatvc_record_video:true,
+};
+console.log(schedulePayload);
+
+const formData = new FormData();
+
+// Append each key-value pair from the schedulePayload to the formData
+for (const key in schedulePayload) {
+  if (schedulePayload.hasOwnProperty(key)) {
+    formData.append(key, schedulePayload[key]);
+  }
+}
+console.log(formData);
+
+const scheduleMeeting = await fetch("https://govintranetnew.nic.in/meityapissecurity/calendar/create_meeting2", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${bearerToken}`,
+  },
+  body: JSON.stringify(schedulePayload),
+});
+
+const scheduleMeetingData = await scheduleMeeting.json();
+
+console.log("Scheduled meeting data : ", scheduleMeetingData);
+
+// Ensure response is ok
+if (!scheduleMeeting.ok) {
+  throw new Error(`HTTP error! Status: ${scheduleMeeting.status}`);
+}
+
+const scheduleMeetingResponse = scheduleMeetingData.data;
+console.log(scheduleMeetingResponse);
+
+const summary = response.choices[0].message
+// return summary;
+res.json({ summary: response.choices[0].message });
   } catch (error) {
     console.error("Error summarizing user messages:", error);
     res.status(500).json({ message: "Internal Server Error" });
@@ -163,7 +293,20 @@ const summarizeUserMessage = async (req, res) => {
 
 const saveMeetingDetails = async (req, res) => {
   try {
-    const { email, title, description, venue, mode, baRule, category, chairperson } = req.body;
+    const {
+      email,
+      title,
+      description,
+      venue,
+      mode,
+      baRule,
+      category,
+      chairperson,
+      start_date,
+      end_date,
+      start_time,
+      end_time,
+    } = req.body;
 
     // Validate required fields
     if (!email || !venue || !mode || !baRule || !category || !chairperson) {
@@ -179,6 +322,10 @@ const saveMeetingDetails = async (req, res) => {
       baRule,
       category,
       chairperson,
+      start_date,
+      end_date,
+      start_time,
+      end_time,
     });
 
     res.status(201).json({
